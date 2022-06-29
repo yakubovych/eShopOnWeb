@@ -129,6 +129,8 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
+throw new Exception("Cannot move further");
+
 app.Logger.LogInformation("PublicApi App created...");
 
 app.Logger.LogInformation("Seeding Database...");
