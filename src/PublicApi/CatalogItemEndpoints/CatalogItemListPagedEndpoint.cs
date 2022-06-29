@@ -2,6 +2,7 @@
 using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
+using Microsoft.ApplicationInsights;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -59,6 +60,16 @@ public class CatalogItemListPagedEndpoint : IEndpoint<IResult, ListPagedCatalogI
         var items = await _itemRepository.ListAsync(pagedSpec);
 
         _logger.LogWarning($"Count of return items:{items.Count}.");
+
+        try
+        {
+            throw new Exception("Cannot move further");
+        }
+        catch (Exception ex)
+        {
+            var telemtry = new TelemetryClient();
+            telemtry.TrackException(ex);
+        }
 
         response.CatalogItems.AddRange(items.Select(_mapper.Map<CatalogItemDto>));
         foreach (CatalogItemDto item in response.CatalogItems)
