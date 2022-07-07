@@ -18,10 +18,10 @@
       ],
       "destination": "wwwroot/lib/bootstrap/dist/"
     },
-    {
-      "library": "jquery-validation-unobtrusive@3.2.10",
-      "destination": "wwwroot/lib/jquery-validation-unobtrusive/"
-    },
+    //{
+    //  "library": "jquery-validation-unobtrusive@3.2.10",
+    //  "destination": "wwwroot/lib/jquery-validation-unobtrusive/"
+    //},
     {
       "library": "jquery-validate@1.17.0",
       "destination": "wwwroot/lib/jquery-validate/",
