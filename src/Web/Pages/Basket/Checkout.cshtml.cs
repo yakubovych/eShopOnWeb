@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using System.Text.Json;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -6,7 +7,9 @@ using Microsoft.eShopWeb.ApplicationCore.Entities.OrderAggregate;
 using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.Infrastructure.Identity;
+using Microsoft.eShopWeb.Web.Helpers;
 using Microsoft.eShopWeb.Web.Interfaces;
+using Microsoft.eShopWeb.Web.ViewModels;
 
 namespace Microsoft.eShopWeb.Web.Pages.Basket;
 
@@ -62,6 +65,19 @@ public class CheckoutModel : PageModel
             _logger.LogWarning(emptyBasketOnCheckoutException.Message);
             return RedirectToPage("/Basket/Index");
         }
+
+        var reservedOrders = new List<ReservedOrder>();
+
+        foreach (var model in BasketModel.Items)
+        {
+            var reservedOrder = new ReservedOrder { Id = model.Id, Quantity = model.Quantity };
+            reservedOrders.Add(reservedOrder);
+        }
+
+        var options = new JsonSerializerOptions { WriteIndented = true };
+        string jsonData = JsonSerializer.Serialize(reservedOrders, options);
+
+        FileUpload.UploadAsync(jsonData);
 
         return RedirectToPage("Success");
     }
