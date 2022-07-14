@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using System.Text;
+using System.Text.Json;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -7,12 +9,14 @@ using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Web.Interfaces;
+using Microsoft.eShopWeb.Web.ViewModels;
 
 namespace Microsoft.eShopWeb.Web.Pages.Basket;
 
 [Authorize]
 public class CheckoutModel : PageModel
 {
+    private readonly HttpClient _httpClient;
     private readonly IBasketService _basketService;
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly IOrderService _orderService;
@@ -20,12 +24,14 @@ public class CheckoutModel : PageModel
     private readonly IBasketViewModelService _basketViewModelService;
     private readonly IAppLogger<CheckoutModel> _logger;
 
-    public CheckoutModel(IBasketService basketService,
+    public CheckoutModel(HttpClient httpClient,
+        IBasketService basketService,
         IBasketViewModelService basketViewModelService,
         SignInManager<ApplicationUser> signInManager,
         IOrderService orderService,
         IAppLogger<CheckoutModel> logger)
     {
+        _httpClient = httpClient;
         _basketService = basketService;
         _signInManager = signInManager;
         _orderService = orderService;
@@ -62,6 +68,30 @@ public class CheckoutModel : PageModel
             _logger.LogWarning(emptyBasketOnCheckoutException.Message);
             return RedirectToPage("/Basket/Index");
         }
+
+        decimal finalPrice = 0;
+        var itemsName = new List<string>();
+
+        foreach (var model in BasketModel.Items)
+        {
+            finalPrice += model.UnitPrice * model.Quantity;
+            if (!itemsName.Contains(model.ProductName))
+            {
+                itemsName.Add(model.ProductName);
+            }
+        }
+
+        var reservedOrders = new ReservedOrder
+        {
+            ShipAddress = new Address("123 Main St.", "Kent", "OH", "United States", "44240"),
+            FinalPrice = finalPrice,
+            Items = itemsName,
+        };
+
+        string jsonData = JsonSerializer.Serialize(reservedOrders);
+        var content = new StringContent(jsonData.ToString(), Encoding.UTF8, "application/json");
+
+        await _httpClient.PostAsync("https://reserveorderfunc.azurewebsites.net/api/OrderItemsReserver", content);
 
         return RedirectToPage("Success");
     }
