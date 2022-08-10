@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using System.Text.Json;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -7,25 +8,29 @@ using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Web.Interfaces;
+using Microsoft.eShopWeb.Web.ViewModels;
 
 namespace Microsoft.eShopWeb.Web.Pages.Basket;
 
 [Authorize]
 public class CheckoutModel : PageModel
 {
+    private readonly ServiceBusSender _serviceBusSender;
     private readonly IBasketService _basketService;
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly IOrderService _orderService;
-    private string _username = null;
     private readonly IBasketViewModelService _basketViewModelService;
     private readonly IAppLogger<CheckoutModel> _logger;
+    private string _username = null;
 
-    public CheckoutModel(IBasketService basketService,
+    public CheckoutModel(ServiceBusSender serviceBusSender,
+        IBasketService basketService,
         IBasketViewModelService basketViewModelService,
         SignInManager<ApplicationUser> signInManager,
         IOrderService orderService,
         IAppLogger<CheckoutModel> logger)
     {
+        _serviceBusSender = serviceBusSender;
         _basketService = basketService;
         _signInManager = signInManager;
         _orderService = orderService;
@@ -62,6 +67,16 @@ public class CheckoutModel : PageModel
             _logger.LogWarning(emptyBasketOnCheckoutException.Message);
             return RedirectToPage("/Basket/Index");
         }
+
+        var reservedOrders = new List<ReservedOrder>();
+
+        foreach (var model in BasketModel.Items)
+        {
+            var reservedOrder = new ReservedOrder { Id = model.Id, Quantity = model.Quantity };
+            reservedOrders.Add(reservedOrder);
+        }
+
+        await _serviceBusSender.SendMessage(reservedOrders);
 
         return RedirectToPage("Success");
     }
