@@ -32,4 +32,6 @@
 		</Compile>
 	</ItemGroup>
 
+	<ProjectExtensions><VisualStudio><UserProperties wwwroot_4appsettings_1json__JsonSchema="" /></VisualStudio></ProjectExtensions>
+
 </Project>

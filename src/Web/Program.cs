@@ -85,6 +85,8 @@ builder.Services.AddScoped<HttpClient>(s => new HttpClient
     BaseAddress = new Uri(baseUrlConfig.WebBase)
 });
 
+builder.Services.AddScoped<ServiceBusSender>();
+
 // add blazor services
 builder.Services.AddBlazoredLocalStorage();
 builder.Services.AddServerSideBlazor();

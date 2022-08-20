@@ -1,4 +1,7 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿
+using System.Text;
+using System.Text.Json;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -7,25 +10,32 @@ using Microsoft.eShopWeb.ApplicationCore.Exceptions;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
 using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Web.Interfaces;
+using Microsoft.eShopWeb.Web.ViewModels;
 
 namespace Microsoft.eShopWeb.Web.Pages.Basket;
 
 [Authorize]
 public class CheckoutModel : PageModel
 {
+    private readonly HttpClient _httpClient;
+    private readonly ServiceBusSender _serviceBusSender;
     private readonly IBasketService _basketService;
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly IOrderService _orderService;
-    private string _username = null;
     private readonly IBasketViewModelService _basketViewModelService;
     private readonly IAppLogger<CheckoutModel> _logger;
+    private string _username = null;
 
-    public CheckoutModel(IBasketService basketService,
+    public CheckoutModel(HttpClient httpClient,
+        ServiceBusSender serviceBusSender,
+        IBasketService basketService,
         IBasketViewModelService basketViewModelService,
         SignInManager<ApplicationUser> signInManager,
         IOrderService orderService,
         IAppLogger<CheckoutModel> logger)
     {
+        _httpClient = httpClient;
+        _serviceBusSender = serviceBusSender;
         _basketService = basketService;
         _signInManager = signInManager;
         _orderService = orderService;
@@ -62,6 +72,41 @@ public class CheckoutModel : PageModel
             _logger.LogWarning(emptyBasketOnCheckoutException.Message);
             return RedirectToPage("/Basket/Index");
         }
+
+        decimal finalPrice = 0;
+        var itemsName = new List<string>();
+
+        foreach (var model in BasketModel.Items)
+        {
+            finalPrice += model.UnitPrice * model.Quantity;
+            if (!itemsName.Contains(model.ProductName))
+            {
+                itemsName.Add(model.ProductName);
+            }
+        }
+
+        var deliveredOrders = new DeliveryOrder
+        {
+            ShipAddress = new Address("123 Main St.", "Kent", "OH", "United States", "44240"),
+            FinalPrice = finalPrice,
+            Items = itemsName,
+        };
+
+        string jsonData = JsonSerializer.Serialize(deliveredOrders);
+        var content = new StringContent(jsonData.ToString(), Encoding.UTF8, "application/json");
+
+        await _httpClient.PostAsync("https://deliveryorderfunction.azurewebsites.net/api/DeliveryOrderProcessor", content);
+
+        var reservedOrders = new List<ReservedOrder>();
+
+        foreach (var model in BasketModel.Items)
+        {
+            var reservedOrder = new ReservedOrder { Id = model.Id, Quantity = model.Quantity };
+            reservedOrders.Add(reservedOrder);
+        }
+
+        // Send message to service bus queue
+        await _serviceBusSender.SendMessage(reservedOrders);
 
         return RedirectToPage("Success");
     }
